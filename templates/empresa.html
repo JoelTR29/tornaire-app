@@ -2,108 +2,127 @@
 
 {% block content %}
 <section class="max-w-5xl mx-auto py-6">
-	<div class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] items-start">
-		<div class="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100">
-			<div class="inline-flex items-center gap-2 rounded-full bg-blue-50 text-blue-700 px-4 py-2 text-sm font-semibold mb-5">
-				<span class="h-2 w-2 rounded-full bg-blue-600"></span>
-				Nova oferta de feina
-			</div>
+    
+    {% if not current_user %}
+    <div class="bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100 max-w-md mx-auto">
+        <span class="text-4xl">🔒</span>
+        <h2 class="text-2xl font-bold text-gray-900 mt-4">Accés restringit</h2>
+        <p class="text-gray-600 mt-2">Has d'iniciar sessió com a empresa para poder publicar i gestionar ofertes de feina.</p>
+        <div class="mt-6 flex flex-col gap-2">
+            <a href="/empresa/login" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-2xl shadow-lg hover:bg-blue-700 transition">
+                Iniciar Sessió
+            </a>
+            <a href="/empresa/registre" class="w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-2xl hover:bg-gray-200 transition">
+                Crear un compte d'empresa
+            </a>
+        </div>
+    </div>
+    
+    {% else %}
+    
+    <div class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] items-start">
+        
+        <div id="form-container" class="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100">
+            
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-5">
+                <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 text-blue-700 px-4 py-2 text-sm font-semibold">
+                    <span class="h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
+                    Nova oferta de feina
+                </div>
+                <div class="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-1.5 rounded-xl">
+                    🏢 Empresa: <span class="text-gray-900 font-bold">{{ current_user.nom_empresa }}</span>
+                </div>
+            </div>
 
-			<h2 class="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
-				Publica una oferta clara, atractiva i ben estructurada.
-			</h2>
-			<p class="mt-4 text-gray-600 text-lg">
-				Omple les dades bàsiques de la posició i deixa preparada la publicació perquè els candidats entenguin ràpidament què ofereixes.
-			</p>
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+                Publica una oferta clara, atractiva i ben estructurada.
+            </h2>
+            <p class="mt-4 text-gray-600 text-lg">
+                Omple les dades del lloc. L'oferta quedarà automàticament lligada al compte de la teva organització.
+            </p>
 
-			{% if success %}
-			<div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-				<p class="font-semibold">Oferta preparada correctament.</p>
-				<p class="text-sm mt-1">Ja tens la informació recollida i pots continuar amb el flux intern que vulguis afegir després.</p>
-			</div>
-			{% endif %}
+            <form class="mt-8 space-y-6" 
+                  hx-post="/empresa/nova-oferta" 
+                  hx-target="#form-container" 
+                  hx-swap="outerHTML">
+                
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="titol">Títol del lloc</label>
+                        <input id="titol" name="titol" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Ex: Desenvolupador/a Python / IA">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="ubicacio">Ubicació</label>
+                        <input id="ubicacio" name="ubicacio" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Ex: Mataró / Híbrid">
+                    </div>
+                </div>
 
-			<form class="mt-8 space-y-6" method="post" action="/empresa">
-				<div class="grid gap-6 md:grid-cols-2">
-					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-2" for="titulo">Títol del lloc</label>
-						<input id="titulo" name="titulo" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Dissenyador/a UX">
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-2" for="ubicacion">Ubicació</label>
-						<input id="ubicacion" name="ubicacion" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Barcelona / Híbrid">
-					</div>
-				</div>
+                <div class="grid gap-6 md:grid-cols-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="modalitat">Modalitat</label>
+                        <select id="modalitat" name="modalitat" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                            <option value="Presencial">Presencial</option>
+                            <option value="Híbrid" selected>Híbrid</option>
+                            <option value="Remot">Remot</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="salari">Salari Anual (€)</label>
+                        <input id="salari" name="salari" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Ex: 32.000 €">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="correu_contacte">Correu de contacte</label>
+                        <input id="correu_contacte" name="correu_contacte" type="email" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" value="{{ current_user.email }}">
+                    </div>
+                </div>
 
-				<div class="grid gap-6 md:grid-cols-3">
-					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-2" for="modalidad">Modalitat</label>
-						<select id="modalidad" name="modalidad" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
-							<option value="Presencial">Presencial</option>
-							<option value="Híbrid">Híbrid</option>
-							<option value="Remot">Remot</option>
-						</select>
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-2" for="salario">Salari</label>
-						<input id="salario" name="salario" type="text" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="30.000 € - 35.000 €">
-					</div>
-					<div>
-						<label class="block text-sm font-semibold text-gray-700 mb-2" for="contacto">Correu de contacte</label>
-						<input id="contacto" name="contacto" type="email" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="rrhh@empresa.com">
-					</div>
-				</div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2" for="descripcio">Descripció de la posició</label>
+                    <textarea id="descripcio" name="descripcio" rows="4" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Explica el rol, funcions i el dia a dia de l'equip..."></textarea>
+                </div>
 
-				<div>
-					<label class="block text-sm font-semibold text-gray-700 mb-2" for="descripcion">Descripció de l'oferta</label>
-					<textarea id="descripcion" name="descripcion" rows="5" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Explica el rol, objectius, equip i responsabilitats principals."></textarea>
-				</div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2" for="requisits">Requisits Tècnics i Habilitats (Clau per a la IA)</label>
+                    <textarea id="requisits" name="requisits" rows="4" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Indica les eines, idiomes o anys d'experiència necessaris perquè l'algoritme de Gemini pugui fer el 'matching' correctament."></textarea>
+                </div>
 
-				<div>
-					<label class="block text-sm font-semibold text-gray-700 mb-2" for="requisitos">Requisits</label>
-					<textarea id="requisitos" name="requisitos" rows="4" required class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Indica experiència, coneixements o eines necessàries."></textarea>
-				</div>
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                    <button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 hover:-translate-y-0.5">
+                        🚀 Publicar Oferta Oficial
+                    </button>
+                    <a href="/" class="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50">
+                        Cancel·lar
+                    </a>
+                </div>
+            </form>
+        </div>
 
-				<div class="flex flex-col sm:flex-row gap-3 pt-2">
-					<button type="submit" class="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 hover:-translate-y-0.5">
-						Publicar oferta
-					</button>
-					<a href="/" class="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50">
-						Tornar a l'inici
-					</a>
-				</div>
-			</form>
-		</div>
-
-		<aside class="space-y-6">
-			<div class="rounded-3xl bg-slate-900 p-8 text-white shadow-2xl shadow-slate-200">
-				<p class="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">Vista prèvia</p>
-				<h3 class="mt-3 text-2xl font-bold">Oferta premium</h3>
-				<div class="mt-6 space-y-4 text-sm text-slate-300">
-					<div class="rounded-2xl bg-white/5 p-4">
-						<p class="text-slate-400">Títol</p>
-						<p class="mt-1 text-base text-white">Dissenyador/a UX</p>
-					</div>
-					<div class="rounded-2xl bg-white/5 p-4">
-						<p class="text-slate-400">Condicions</p>
-						<p class="mt-1 text-base text-white">Remot · Jornada completa · Contracte indefinit</p>
-					</div>
-					<div class="rounded-2xl bg-white/5 p-4">
-						<p class="text-slate-400">Objectiu</p>
-						<p class="mt-1 text-base text-white">Atrau talent amb una proposta clara i professional.</p>
-					</div>
-				</div>
-			</div>
-
-			<div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-lg">
-				<h3 class="text-lg font-bold text-gray-900">Consells ràpids</h3>
-				<ul class="mt-4 space-y-3 text-sm text-gray-600">
-					<li class="flex gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-blue-600"></span> Usa un títol concret i fàcil d’entendre.</li>
-					<li class="flex gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-blue-600"></span> Indica salari i ubicació per filtrar millor candidats.</li>
-					<li class="flex gap-3"><span class="mt-1 h-2 w-2 rounded-full bg-blue-600"></span> Explica requisits reals, no una llista interminable.</li>
-				</ul>
-			</div>
-		</aside>
-	</div>
+        <aside class="space-y-6">
+            <div class="rounded-3xl bg-slate-900 p-8 text-white shadow-2xl">
+                <p class="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">Panell de Control</p>
+                <h3 class="mt-3 text-2xl font-bold">{{ current_user.nom_empresa }}</h3>
+                <div class="mt-6 space-y-4 text-sm text-slate-300">
+                    <div class="rounded-2xl bg-white/5 p-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-slate-400 text-xs">Estat del compte</p>
+                            <p class="mt-0.5 text-emerald-400 font-semibold flex items-center gap-1">
+                                <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Verificada
+                            </p>
+                        </div>
+                    </div>
+                    <div class="rounded-2xl bg-white/5 p-4">
+                        <p class="text-slate-400 text-xs">Consell de l'algoritme</p>
+                        <p class="mt-1 text-xs text-slate-300 leading-relaxed">
+                            Al camp "Requisits", utilitza paraules clau clares (ex: <i>"Python", "SQL", "2 anys d'experiència"</i>). Això optimitza el percentatge d'afinitat de la IA durant el filtratge de CVs.
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-6 pt-4 border-t border-white/10 text-center">
+                    <a href="/logout" class="text-xs text-red-400 hover:text-red-300 font-medium transition">Tancar la sessió de l'empresa</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+    {% endif %}
 </section>
 {% endblock %}
