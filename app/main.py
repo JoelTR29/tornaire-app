@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -45,4 +45,35 @@ async def home(request: Request):
         name="index.html",
         request=request,
         context={}
+    )
+
+@app.get("/empresa")
+async def empresa(request: Request):
+    return templates.TemplateResponse(request, "empresa.html", {"success": False})
+
+
+@app.post("/empresa")
+async def empresa_submit(
+    request: Request,
+    titulo: str = Form(...),
+    ubicacion: str = Form(...),
+    modalidad: str = Form(...),
+    salario: str = Form(...),
+    descripcion: str = Form(...),
+    requisitos: str = Form(...),
+    contacto: str = Form(...),
+):
+    oferta = {
+        "titulo": titulo,
+        "ubicacion": ubicacion,
+        "modalidad": modalidad,
+        "salario": salario,
+        "descripcion": descripcion,
+        "requisitos": requisitos,
+        "contacto": contacto,
+    }
+    return templates.TemplateResponse(
+        request,
+        "empresa.html",
+        {"success": True, "oferta": oferta},
     )
