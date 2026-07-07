@@ -16,4 +16,4 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/")
 async def home(request: Request):
     # Esto renderizará un index.html (que crearás luego) basándose en base.html
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html", {})
