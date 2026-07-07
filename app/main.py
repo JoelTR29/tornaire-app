@@ -47,6 +47,10 @@ async def home(request: Request):
         context={}
     )
 
+@app.get("/candidat")
+async def candidat(request: Request):
+    return templates.TemplateResponse(request, "candidat.html", {"success": False})
+
 @app.get("/empresa")
 async def empresa(request: Request):
     return templates.TemplateResponse(request, "empresa.html", {"success": False})
