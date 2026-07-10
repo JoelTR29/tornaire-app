@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import json
 
+import pdfplumber
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -162,18 +164,66 @@ async def candidat_enviar_manual(
     """)
 
 @app.post("/candidat/enviar-pdf")
-async def candidat_enviar_pdf(file: UploadFile = File(...)):
-    # Aquí en la Fase 3 usarás pdfplumber para leer el 'file.file'
-    import random
-    matching_percent = random.randint(70, 95)
+async def processar_pdf_candidat(request: Request, file: UploadFile = File(...), session_user: str = Cookie(None)):
+    current_user = get_current_user(session_user)
     
-    return HTMLResponse(content=f"""
-        <div class="bg-white p-6 rounded-3xl border-2 border-emerald-500 shadow-xl max-w-xl mx-auto text-center">
-            <span class="text-4xl">📄🤖</span>
-            <h4 class="text-xl font-extrabold text-gray-900 mt-2">Resultat d'Anàlisi del PDF</h4>
-            <div class="my-4">
-                <span class="text-5xl font-black text-emerald-600">{matching_percent}%</span>
-                <p class="text-sm text-gray-500 mt-1">Document processat: <b>{file.filename}</b></p>
-            </div>
+    #  CONTROL D'ACCÉS: Si no és candidat, fora.
+    if not current_user or current_user.get("role") != "candidat":
+        return HTMLResponse("<div class='text-red-500 font-bold'>Error: Accés denegat.</div>", status_code=403)
+
+    # 1. VALIDACIÓ D'EXTENSIÓ: Comprovem que sigui un PDF
+    if not file.filename.lower().endswith('.pdf'):
+        return HTMLResponse("""
+        <div class="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 mt-4">
+            <strong>⚠️ Error de format:</strong> L'arxiu pujat no és un PDF. Si us plau, puja un format vàlid (.pdf).
         </div>
+        """)
+
+    # 2. LÒGICA DE LECTURA (pdfplumber)
+    text_cv = ""
+    try:
+        # Obrim l'arxiu temporal directament des de la memòria de FastAPI
+        with pdfplumber.open(file.file) as pdf:
+            # Fem un bucle per totes les pàgines (per si el CV en té més d'una)
+            for page in pdf.pages:
+                text_extret = page.extract_text()
+                if text_extret:
+                    text_cv += text_extret + "\n"
+                    
+    except Exception as e:
+        return HTMLResponse(f"""
+        <div class="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 mt-4">
+            <strong>🚨 Error de lectura:</strong> No s'ha pogut obrir el PDF. Podria estar corrupte o protegit amb contrasenya. 
+            <span class="text-xs block mt-1">Detall: {e}</span>
+        </div>
+        """)
+
+    # 3. VALIDACIÓ DE CONTINGUT: Evitem PDFs escanejats (imatges sense text)
+    if not text_cv.strip():
+        return HTMLResponse("""
+        <div class="bg-orange-50 text-orange-700 p-4 rounded-xl border border-orange-200 mt-4">
+            <strong>👀 Avís important:</strong> No s'ha trobat text al document. Assegura't que el PDF conté text digital i no és una imatge escanejada o una fotografia.
+        </div>
+        """)
+
+    # 4. PONT CAP A LA FASE 4/5: Mostrem un avís visual a l'usuari amb el resultat de l'extracció
+    # Més endavant, aquest text_cv s'enviarà a l'API de Gemini abans de retornar res.
+    return HTMLResponse(f"""
+    <div class="bg-emerald-50 text-emerald-800 p-6 rounded-2xl border border-emerald-200 mt-6 shadow-sm">
+        <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+            <span>📄</span> Extracció de text completada amb èxit!
+        </h3>
+        <p class="mb-4 text-sm">
+            Hem extret <strong>{len(text_cv)} caràcters</strong> del teu document. Això és el que la IA llegirà:
+        </p>
+        
+        <!-- Previsualització del text extret -->
+        <div class="bg-white p-4 rounded-xl border border-emerald-100 text-sm text-gray-600 max-h-40 overflow-y-auto mb-4 shadow-inner">
+            <p class="font-mono text-xs whitespace-pre-wrap">{text_cv[:400]}...</p>
+        </div>
+        
+        <p class="text-xs font-semibold text-emerald-600">
+            ✅ Llest per connectar amb l'API de Gemini (Fase 4).
+        </p>
+    </div>
     """)
