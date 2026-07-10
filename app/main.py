@@ -1,89 +1,69 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
+import json
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Form, Cookie, HTTPException
+from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 
 from app.database import init_db, get_connection
-
-import json
+from app.auth import router as auth_router  # IMPORTAMOS TU NUEVO ARCHIVO DE AUTH
 
 # Cargar variables del archivo .env
 load_dotenv()
 
-# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Carpetas del proyecto
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
-# Crear carpetas si no existen
 STATIC_DIR.mkdir(exist_ok=True)
 (STATIC_DIR / "uploads").mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Se ejecuta al arrancar FastAPI.
-    Crea automáticamente la base de datos tornaire.db
-    y las tablas necesarias si todavía no existen.
-    """
-    init_db()
+    init_db()  # Crea automáticamente tornaire.db con las 3 tablas nuevas
     yield
 
 app = FastAPI(lifespan=lifespan)
 
-# Configurar carpetas estáticas y plantillas HTML
+# CONECTAMOS EL ROUTER DE AUTENTICACIÓN A LA APP PRINCIPAL
+app.include_router(auth_router)
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+# --- HELPER: Extraer datos de la cookie si existe ---
+def get_current_user(session_user: str):
+    if session_user:
+        try:
+            return json.loads(session_user)
+        except Exception:
+            return None
+    return None
+
+# --- VISTAS PRINCIPALES ---
+
 @app.get("/")
-async def home(request: Request):
-    return templates.TemplateResponse(
-        name="index.html",
-        request=request,
-        context={}
-    )
+async def home(request: Request, session_user: str = Cookie(None)):
+    current_user = get_current_user(session_user)
+    return templates.TemplateResponse(request, "index.html", {"current_user": current_user})
 
 @app.get("/candidat")
-async def candidat(request: Request):
-    return templates.TemplateResponse(request, "candidat.html", {"success": False})
+async def candidat(request: Request, session_user: str = Cookie(None)):
+    current_user = get_current_user(session_user)
+    return templates.TemplateResponse(request, "candidat.html", {"current_user": current_user})
 
 @app.get("/empresa")
-async def empresa(request: Request):
-    return templates.TemplateResponse(request, "empresa.html", {"success": False})
+async def empresa(request: Request, session_user: str = Cookie(None)):
+    current_user = get_current_user(session_user)
+    return templates.TemplateResponse(request, "empresa.html", {"current_user": current_user})
 
 
-@app.post("/empresa")
-async def empresa_submit(
-    request: Request,
-    titulo: str = Form(...),
-    ubicacion: str = Form(...),
-    modalidad: str = Form(...),
-    salario: str = Form(...),
-    descripcion: str = Form(...),
-    requisitos: str = Form(...),
-    contacto: str = Form(...),
-):
-    oferta = {
-        "titulo": titulo,
-        "ubicacion": ubicacion,
-        "modalidad": modalidad,
-        "salario": salario,
-        "descripcion": descripcion,
-        "requisitos": requisitos,
-        "contacto": contacto,
-    }
-    return templates.TemplateResponse(
-        request,
-        "empresa.html",
-        {"success": True, "oferta": oferta},
-    )
+# --- ACCIONES HTMX (BASE DE DATOS REAL) ---
 
 @app.post("/empresa/nova-oferta")
 async def empresa_nova_oferta(
@@ -94,19 +74,15 @@ async def empresa_nova_oferta(
     correu_contacte: str = Form(...),
     descripcio: str = Form(...),
     requisits: str = Form(...),
-    session_user: str = Cookie(None)  # Llegim la cookie de sessió de l'usuari connectat
+    session_user: str = Cookie(None)
 ):
-    # 1. Verifiquem si realment hi ha una empresa connectada
-    if not session_user:
-        raise HTTPException(status_code=401, detail="No has iniciat sessió")
-    
-    user_data = json.loads(session_user)
-    
-    # Suposem que en fer login guardarem també el seu ID de la base de dades a la cookie.
-    # Per ara, farem servir un ID temporal o el recuperarem si ja el tenim.
-    user_id = user_data.get("id", 1) 
+    current_user = get_current_user(session_user)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Sessió no vàlida")
+        
+    user_id = current_user.get("id")
 
-    # 2. Inserim l'oferta real a la base de dades SQLite
+    # Guardamos la oferta real en la base de datos vinculada a la empresa conectada
     connection = get_connection()
     try:
         cursor = connection.cursor()
@@ -117,15 +93,56 @@ async def empresa_nova_oferta(
         connection.commit()
     except Exception as e:
         connection.rollback()
-        return HTMLResponse(content=f"<p class='text-red-500'>Error al desar a la base de dades: {str(e)}</p>")
+        return HTMLResponse(content=f"<div class='p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700'>Error a la DB: {str(e)}</div>")
     finally:
         connection.close()
 
-    # 3. Responem amb el bloc d'èxit per a HTMX
+    # Respuesta parcial HTML inyectada instantáneamente por HTMX
     return HTMLResponse(content="""
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900">
-            <h3 class="text-xl font-bold flex items-center gap-2">🎉 Oferta Publicada i Desada a SQLite</h3>
-            <p class="text-sm mt-2">L'oferta s'ha guardat amb èxit a la base de dades 'tornaire.db' vinculada al teu compte d'empresa.</p>
-            <button onclick="window.location.reload()" class="mt-4 text-xs font-semibold bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700">Publicar una altra</button>
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 animate-fade-in">
+            <h3 class="text-xl font-bold flex items-center gap-2">🎉 Oferta Publicada Oficialment</h3>
+            <p class="text-sm mt-2">L'oferta s'ha emmagatzemat correctament a SQLite lligada al compte de la teva organització.</p>
+            <button onclick="window.location.reload()" class="mt-4 text-xs font-semibold bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700">Publicar una altra oferta</button>
+        </div>
+    """)
+
+@app.post("/candidat/enviar-manual")
+async def candidat_enviar_manual(
+    estudis: str = Form(...),
+    experiencia: str = Form(...),
+    habilitats: str = Form(...)
+):
+    # Aquí en la Fase 5 llamarás a Gemini pasando estos textos
+    import random
+    matching_percent = random.randint(65, 98)
+    
+    return HTMLResponse(content=f"""
+        <div class="bg-white p-6 rounded-3xl border-2 border-blue-500 shadow-xl max-w-xl mx-auto text-center">
+            <span class="text-4xl">📊</span>
+            <h4 class="text-xl font-extrabold text-gray-900 mt-2">Resultat del Matching Automatitzat</h4>
+            <div class="my-4">
+                <span class="text-5xl font-black text-blue-600">{matching_percent}%</span>
+                <p class="text-sm text-gray-500 mt-1">Compatibilitat estimada amb el mercat</p>
+            </div>
+            <p class="text-sm text-gray-600 bg-gray-50 p-4 rounded-2xl">
+                <b>Anàlisi mock-up:</b> Les teves dades manuals s'han estructurat correctament en memòria per al TdR.
+            </p>
+        </div>
+    """)
+
+@app.post("/candidat/enviar-pdf")
+async def candidat_enviar_pdf(file: UploadFile = File(...)):
+    # Aquí en la Fase 3 usarás pdfplumber para leer el 'file.file'
+    import random
+    matching_percent = random.randint(70, 95)
+    
+    return HTMLResponse(content=f"""
+        <div class="bg-white p-6 rounded-3xl border-2 border-emerald-500 shadow-xl max-w-xl mx-auto text-center">
+            <span class="text-4xl">📄🤖</span>
+            <h4 class="text-xl font-extrabold text-gray-900 mt-2">Resultat d'Anàlisi del PDF</h4>
+            <div class="my-4">
+                <span class="text-5xl font-black text-emerald-600">{matching_percent}%</span>
+                <p class="text-sm text-gray-500 mt-1">Document processat: <b>{file.filename}</b></p>
+            </div>
         </div>
     """)
