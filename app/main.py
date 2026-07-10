@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.database import init_db, get_connection
 from app.auth import router as auth_router  # IMPORTAMOS TU NUEVO ARCHIVO DE AUTH
@@ -82,11 +82,15 @@ async def home(request: Request, session_user: str = Cookie(None)):
 @app.get("/candidat")
 async def candidat(request: Request, session_user: str = Cookie(None)):
     current_user = get_current_user(session_user)
+    if not current_user or current_user.get("role") != "candidat":
+        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "candidat.html", {"current_user": current_user})
 
 @app.get("/empresa")
 async def empresa(request: Request, session_user: str = Cookie(None)):
     current_user = get_current_user(session_user)
+    if not current_user or current_user.get("role") != "empresa":
+        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "empresa.html", {"current_user": current_user})
 
 
@@ -104,8 +108,8 @@ async def empresa_nova_oferta(
     session_user: str = Cookie(None)
 ):
     current_user = get_current_user(session_user)
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Sessió no vàlida")
+    if not current_user or current_user.get("role") != "empresa":
+        raise HTTPException(status_code=403, detail="Accés denegat")
         
     user_id = current_user.get("id")
 
