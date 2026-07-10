@@ -50,7 +50,34 @@ def get_current_user(session_user: str):
 @app.get("/")
 async def home(request: Request, session_user: str = Cookie(None)):
     current_user = get_current_user(session_user)
-    return templates.TemplateResponse(request, "index.html", {"current_user": current_user})
+    
+    # 1. Connectem amb SQLite per recuperar les ofertes actives
+    connection = get_connection()
+    ofertes = []
+    try:
+        cursor = connection.cursor()
+        # Fem un JOIN per obtenir el 'nom_empresa' de la taula d'usuaris usant el 'user_id'
+        cursor.execute("""
+            SELECT job_offers.*, users.nom_empresa 
+            FROM job_offers 
+            JOIN users ON job_offers.user_id = users.id 
+            ORDER BY job_offers.created_at DESC
+        """)
+        ofertes = cursor.fetchall()  # Retorna una llista de files de la base de dades
+    except Exception as e:
+        print(f"⚠️ Error en carregar les ofertes: {e}")
+    finally:
+        connection.close()
+        
+    # 2. Passem la llista d'ofertes ("ofertes") cap al fitxer HTML
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "current_user": current_user,
+            "ofertes": ofertes,
+        },
+    )
 
 @app.get("/candidat")
 async def candidat(request: Request, session_user: str = Cookie(None)):
